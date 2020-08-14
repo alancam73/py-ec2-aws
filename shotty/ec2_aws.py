@@ -64,6 +64,7 @@ def list_volumes(project):
     return
 
 
+
 # Instances management
 @cli.group('instances')
 def instances():
@@ -81,6 +82,7 @@ def list_instances(project):
         tags = { t['Key']: t['Value'] for t in i.tags or [] }
         print (', '.join((i.id, i.instance_type, i.placement['AvailabilityZone'], i.state['Name'], i.public_dns_name, str(i.public_ip_address), tags.get('Name', '<no nametag>'))))
 
+
 @instances.command('snapshot')    
 @click.option('--project', default=None, help="Only instances for project tag Name ")
 def create_snapshot_instances(project):
@@ -89,10 +91,25 @@ def create_snapshot_instances(project):
     instances = filter_instances(project)
     
     for i in instances:
+        
+        # first stop instances before doing snapshot
+        print("Stopping instance {0}".format(i.id))
+        i.stop()
+        i.wait_until_stopped()
+        
         for v in i.volumes.all():
             print ("Creating snapshot of {0}".format(v.id))
             v.create_snapshot(Description="Snapshot created by ec2_aws.py")
+            
+        # start instances post snapshot
+        print("Restarting instance {0}".format(i.id))
+        i.start()
+        i.wait_until_running()
+        
+    print("Snapshots complete")
+            
     return
+
 
 @instances.command('stop')
 @click.option('--project', default=None, help="Only instances for project tag Name ")
