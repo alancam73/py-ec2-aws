@@ -22,10 +22,53 @@ def filter_instances(project):
         
     return instances
     
-
+    
 @click.group()
+def cli():
+    """Manages instances and volumes"""
+
+# Snapshots management
+@cli.group('snapshots')
+def snapshots():
+    """Commands for snapshots"""
+    
+@snapshots.command('list')    
+@click.option('--project', default=None, help="Only snapshots for project tag Name ")
+def list_snapshots(project):
+    "List EC2 volume snapshots"
+    
+    instances = filter_instances(project)
+    for i in instances:
+        for v in i.volumes.all():
+            for s in v.snapshots.all():
+                print(', '.join((v.id, i.id, s.id, s.description, s.state)))
+
+    return
+    
+
+# Volumes management
+@cli.group('volumes')
+def volumes():
+    """Commands for volumes"""
+    
+@volumes.command('list')    
+@click.option('--project', default=None, help="Only volumes for project tag Name ")
+def list_volumes(project):
+    "List EC2 volumes"
+    
+    instances = filter_instances(project)
+    for i in instances:
+        for v in i.volumes.all():
+            print(', '.join((v.id, v.state, i.id, str(v.size))))
+
+    return
+
+
+# Instances management
+@cli.group('instances')
 def instances():
     """Commands for instances"""
+
 
 @instances.command('list')    
 @click.option('--project', default=None, help="Only instances for project tag Name ")
@@ -38,6 +81,18 @@ def list_instances(project):
         tags = { t['Key']: t['Value'] for t in i.tags or [] }
         print (', '.join((i.id, i.instance_type, i.placement['AvailabilityZone'], i.state['Name'], i.public_dns_name, str(i.public_ip_address), tags.get('Name', '<no nametag>'))))
 
+@instances.command('snapshot')    
+@click.option('--project', default=None, help="Only instances for project tag Name ")
+def create_snapshot_instances(project):
+    "Snapshot of EC2 instance volumes"
+    
+    instances = filter_instances(project)
+    
+    for i in instances:
+        for v in i.volumes.all():
+            print ("Creating snapshot of {0}".format(v.id))
+            v.create_snapshot(Description="Snapshot created by ec2_aws.py")
+    return
 
 @instances.command('stop')
 @click.option('--project', default=None, help="Only instances for project tag Name ")
@@ -70,7 +125,7 @@ def start_instances(project):
 
 #session = boto3.Session(profile_name='shotty')
 if __name__ == '__main__':
-    instances()
+    cli()
 
     
     
