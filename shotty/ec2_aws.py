@@ -10,7 +10,7 @@ import click
 session = boto3.Session()
 ec2 = session.resource('ec2')
 
-
+# Generic helper fxns
 def filter_instances(project):
     instances = []
     
@@ -23,7 +23,13 @@ def filter_instances(project):
         
     return instances
     
+
+def has_pending_snapshot(volume):
+    snapshots = list(volume.snapshots.all())
+    return snapshots and snapshots[0].state == 'pending'
+
     
+# Fxns for CLI cmd args 
 @click.group()
 def cli():
     """Manages instances and volumes"""
@@ -43,6 +49,9 @@ def list_snapshots(project):
         for v in i.volumes.all():
             for s in v.snapshots.all():
                 print(', '.join((v.id, i.id, s.id, s.description, s.state)))
+                
+                # only show most recent successful snapshot
+                if s.state == 'completed': break
 
     return
     
@@ -99,6 +108,9 @@ def create_snapshot_instances(project):
         i.wait_until_stopped()
         
         for v in i.volumes.all():
+            if has_pending_snapshot(v):
+                print ("Cant do snapshot presently...{0}".format(v.id))
+                
             print ("Creating snapshot of {0}".format(v.id))
             v.create_snapshot(Description="Snapshot created by ec2_aws.py")
             
